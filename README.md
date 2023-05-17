@@ -1,4 +1,4 @@
-# cmsketch-rs
+# cmsketch
 
 A count min sketch implementation in Rust.
 
