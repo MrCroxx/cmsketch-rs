@@ -1,0 +1,15 @@
+[package]
+name = "cmsketch"
+version = "0.1.0"
+edition = "2021"
+authors = ["MrCroxx <mrcroxx@outlook.com>"]
+description = "A count min sketch implementation in Rust"
+license = "Apache-2.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+paste = "1.0"
+
+[dev-dependencies]
+rand_mt = "4.2.1"
