@@ -57,7 +57,7 @@
 //!     let mut cms = CMSketchU32::new(ERROR, PROBABILITY, MAX_WIDTH, MAX_DEPTH);
 //!     for i in 0..10 {
 //!         for _ in 0..i {
-//!             cms.add(i);
+//!             cms.record(i);
 //!         }
 //!     }
 //!     
@@ -126,7 +126,7 @@ macro_rules! cm_sketch {
                         }
                     }
 
-                    pub fn add(&mut self, key: u64) {
+                    pub fn record(&mut self, key: u64) {
                         for i in 0..self.depth {
                             let index = self.index(i, key);
                             if self.table[index] < self.max_count() {
@@ -260,7 +260,7 @@ mod tests {
             paste! {
                 $(
                     #[test]
-                    fn [<test_add_ $type>]() {
+                    fn [<test_record_ $type>]() {
                         let mut cms = [<CMSketch $suffix>]::new_with_size(100, 3);
                         let mut rng = Mt64::new_unseeded();
                         let mut keys = vec![];
@@ -268,7 +268,7 @@ mod tests {
                         for i in 0..10 {
                             keys.push(rng.next_u64());
                             for _ in 0..i {
-                                cms.add(keys[i]);
+                                cms.record(keys[i]);
                             }
                         }
 
@@ -290,7 +290,7 @@ mod tests {
                         for i in 0..10 {
                             keys.push(rng.next_u64());
                             for _ in 0..i {
-                                cms.add(keys[i]);
+                                cms.record(keys[i]);
                             }
                         }
 
@@ -309,7 +309,7 @@ mod tests {
                         for i in 0..10 {
                             keys.push(rng.next_u64());
                             for _ in 0..i {
-                                cms.add(keys[i]);
+                                cms.record(keys[i]);
                             }
                         }
 
@@ -330,7 +330,7 @@ mod tests {
                         for i in 0..55 {
                             keys.push(rng.next_u64());
                             for _ in 0..i {
-                                cms.add(keys[i]);
+                                cms.record(keys[i]);
                             }
                             sum += i;
                         }
@@ -365,7 +365,7 @@ mod tests {
                         for i in 0..1000 {
                             keys.push(rng.next_u64());
                             for _ in 0..i {
-                                cms.add(keys[i]);
+                                cms.record(keys[i]);
                             }
                         }
 
@@ -395,7 +395,7 @@ mod tests {
                         // Skip test if max is too large.
                         if (max as usize) < (u32::MAX as usize) {
                             for _ in 0..max {
-                                cms.add(key);
+                                cms.record(key);
                             }
 
                             assert_eq!(cms.count(key), max);
