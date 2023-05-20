@@ -66,8 +66,7 @@ jobs:
           cargo fmt --all -- --check
       - name: Run rust clippy check
         run: |
-          # If new CI checks are added, the one with `--locked` must be run first.
-          cargo clippy --all-targets --locked -- -D warnings
+          cargo clippy --all-targets -- -D warnings
       - if: steps.cache.outputs.cache-hit != 'true'
         uses: taiki-e/install-action@cargo-llvm-cov
       - if: steps.cache.outputs.cache-hit != 'true'
