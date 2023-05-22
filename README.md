@@ -37,5 +37,5 @@ fn main() {
 
 ## Roadmap
 
-- [] more key type support
-- [] benchmark
+- [ ] more key type support
+- [ ] benchmark
