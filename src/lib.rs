@@ -186,6 +186,10 @@ macro_rules! cm_sketch {
                         self.saturated
                     }
 
+                    pub fn raw(&self)-> &[$type]{
+                        &self.table
+                    }
+
                     /// `max_width == 0` represents there is no limitations.
                     fn calculate_width(error: f64, max_width: usize) -> usize {
                         assert!(error > 0.0 && error < 1.0, "Error should be greater than 0 and less than 1, error: {}.", error);
