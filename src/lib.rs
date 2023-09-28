@@ -91,6 +91,7 @@ macro_rules! cm_sketch {
     ($( {$type:ty, $suffix:ident}, )*) => {
         paste! {
             $(
+                #[derive(Debug)]
                 pub struct [<CMSketch $suffix>] {
                     width: usize,
                     depth: usize,
