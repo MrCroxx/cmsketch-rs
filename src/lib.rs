@@ -31,7 +31,7 @@
 //! number of hashes and the width being the number of unique items. When a key
 //! is inserted, each row's hash function is used to generate the index for that
 //! row. Then the element's count at that index is incremented. As a result, one
-//! key being inserted will increment different indicies in each row. Querying the
+//! key being inserted will increment different indices in each row. Querying the
 //! count returns the minimum values of these elements since some hashes might collide.
 //!
 //!
