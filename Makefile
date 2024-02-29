@@ -1,0 +1,20 @@
+SHELL := /bin/bash
+.PHONY: deps check test test-ignored test-all all fast monitor clear madsim
+
+deps:
+	./scripts/install-deps.sh
+
+check:
+	typos
+	shellcheck ./scripts/*
+	cargo sort -w
+	cargo fmt --all
+	cargo clippy --all-targets
+	cargo udeps --workspace
+
+test:
+	RUST_BACKTRACE=1 cargo nextest run --all
+	RUST_BACKTRACE=1 cargo test --doc
+
+all: check test
+
