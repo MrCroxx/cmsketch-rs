@@ -7,6 +7,7 @@ deps:
 check:
 	typos
 	shellcheck ./scripts/*
+	./.github/template/generate.sh
 	cargo sort -w
 	cargo fmt --all
 	cargo clippy --all-targets
