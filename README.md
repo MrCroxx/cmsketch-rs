@@ -2,7 +2,7 @@
 
 A count min sketch implementation in Rust.
 
-Ported from [Facebook/CacheLib](https://github.com/facebook/cachelib).
+Inspired by [Facebook/CacheLib](https://github.com/facebook/cachelib) and [Caffeine](https://github.com/ben-manes/caffeine).
 
 ## Usage
 
@@ -10,32 +10,29 @@ Ported from [Facebook/CacheLib](https://github.com/facebook/cachelib).
 use cmsketch::CMSketchU32;
 
 const ERROR: f64 = 0.01;
-const PROBABILITY: f64 = 0.95;
-const MAX_WIDTH: usize = 0; // no limits
-const MAX_DEPTH: usize = 0; // no limits
+const CONFIDENCE: f64 = 0.95;
 
 fn main() {
-    let mut cms = CMSketchU32::new(ERROR, PROBABILITY, MAX_WIDTH, MAX_DEPTH);
-    
+    let mut cms = CMSketchU32::new(ERROR, CONFIDENCE);
     for i in 0..10 {
         for _ in 0..i {
-            cms.record(i);
+            cms.inc(i);
         }
     }
     
     for i in 0..10 {
-        assert!(cms.count(i) >= i as u32);
+        assert!(cms.estimate(i) >= i as u32);
     }
     
-    cms.decay(0.5);
+    cms.halve();
     
     for i in 0..10 {
-        assert!(cms.count(i) >= (i as f64 * 0.5) as u32);
+        assert!(cms.estimate(i) >= (i as f64 * 0.5) as u32);
     }
 }
 ```
 
 ## Roadmap
 
-- [ ] more key type support
+- [ ] simd halve
 - [ ] benchmark

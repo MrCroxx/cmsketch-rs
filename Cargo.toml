@@ -13,4 +13,5 @@ homepage = "https://github.com/mrcroxx/cmsketch-rs"
 paste = "1.0"
 
 [dev-dependencies]
+itertools = "0.12"
 rand_mt = "4.2.1"
