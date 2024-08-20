@@ -11,6 +11,8 @@ check:
 	cargo sort -w
 	cargo fmt --all
 	cargo clippy --all-targets
+
+udeps:
 	cargo udeps --workspace
 
 test:
