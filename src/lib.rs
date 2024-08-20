@@ -88,7 +88,12 @@ macro_rules! cmsketch {
 
                         let width = (2.0 / eps).ceil() as usize;
                         let depth = (- (1.0 - confidence).log2()).ceil() as usize;
-                        let table = vec![0; width * depth].into_boxed_slice();
+                        let table = {
+                            // Use `resize` instead of `vec![]` to avoid page faults caused by delayed allocation.
+                            let mut data = Vec::with_capacity(width * depth);
+                            data.resize(width * depth, 0);
+                            data.into_boxed_slice()
+                        };
 
                         debug_assert!(width > 0, "width: {width}");
                         debug_assert!(depth > 0, "depth: {depth}");
