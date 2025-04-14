@@ -19,6 +19,9 @@ test:
 	RUST_BACKTRACE=1 cargo nextest run --all
 	RUST_BACKTRACE=1 cargo test --doc
 
+taplo:
+	taplo fmt
+
 ffmt:
 	cargo +nightly fmt --all -- --config-path rustfmt.nightly.toml
 
