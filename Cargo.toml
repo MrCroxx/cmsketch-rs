@@ -7,11 +7,12 @@ description = "A count min sketch implementation in Rust"
 license = "Apache-2.0"
 repository = "https://github.com/mrcroxx/cmsketch-rs"
 homepage = "https://github.com/mrcroxx/cmsketch-rs"
+rust-version = "1.81.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 paste = "1.0"
 
 [dev-dependencies]
-itertools = "0.13"
-rand_mt = "4.2.1"
+itertools = "0.14"
+rand_mt = "5"

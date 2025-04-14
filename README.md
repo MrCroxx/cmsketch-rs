@@ -6,6 +6,12 @@ Inspired by [Facebook/CacheLib](https://github.com/facebook/cachelib) and [Caffe
 
 ## Usage
 
+Add `cmsketch` into the dependencies of your project: 
+
+```toml
+cmsketch = "0.2"
+```
+
 ```rust
 use cmsketch::CMSketchU32;
 
@@ -31,6 +37,10 @@ fn main() {
     }
 }
 ```
+
+## MSRV
+
+Rust version >= `1.81.0`.
 
 ## Roadmap
 
