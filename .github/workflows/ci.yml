@@ -1,0 +1,274 @@
+name: "CI"
+
+on:
+  push:
+    branches:
+      - "main"
+      - "forks/*"
+      - release-*.*
+  pull_request:
+    branches:
+      - "main"
+      - "v*.*.*-rc"
+      - release-*.*
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  RUST_TOOLCHAIN_NIGHTLY: nightly-2024-08-30
+  CARGO_TERM_COLOR: always
+  CACHE_KEY_SUFFIX: 20250325
+  CARGO_UDEPS_KEY_SUFFIX: 20250325
+
+jobs:
+  misc-check:
+    name: misc check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Run typos check
+        uses: crate-ci/typos@master
+      - name: Install yq
+        run: |
+          wget https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/${BINARY}.tar.gz -O - | tar xz && sudo mv ${BINARY} /usr/bin/yq
+        env:
+          YQ_VERSION: v4.16.1
+          BINARY: yq_linux_amd64
+          BUF_VERSION: 1.0.0-rc6
+      - name: Install jq
+        uses: dcarbone/install-jq-action@v2.0.2
+      - name: Check if Grafana dashboards are minimized
+        run: |
+          ./scripts/minimize-dashboards.sh --check
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@master
+  cargo-manifest-check:
+    name: cargo manifest check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Cache Cargo home
+        uses: actions/cache@v4
+        id: cache
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ hashFiles('**/Cargo.toml') }}-${{ env.CACHE_KEY_SUFFIX }}-cargo-manifest-check
+      - name: Install tools
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          cargo install cargo-sort taplo-cli --locked
+      - name: Run cargo sort check
+        run: |
+          cargo sort -w -c
+      - name: Run taplo fmt check
+        run: |
+          taplo fmt --check
+  rust-machete:
+    name: rust machete check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+      - name: Run cargo machete
+        uses: bnjbvr/cargo-machete@main
+  rust-udeps:
+    name: rust udeps test
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly
+      - name: Cache Cargo home
+        uses: actions/cache@v4
+        id: cache
+        with:
+          path: |
+            ~/.cargo/bin/
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ env.CARGO_UDEPS_KEY_SUFFIX }}-rust-udeps
+      - name: Install NASM for aws-lc-rs on Windows
+        if: runner.os == 'Windows'
+        uses: ilammy/setup-nasm@v1
+      - name: Install ninja-build tool for aws-lc-fips-sys on Windows
+        if: runner.os == 'Windows'
+        uses: seanmiddleditch/gha-setup-ninja@v5
+      - name: Install cargo-udeps
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          cargo install cargo-udeps --locked
+      - name: Unused Dependencies Check
+        env:
+          RUSTFLAGS: "--cfg tokio_unstable -Awarnings"
+        run: |
+          cargo udeps --all-targets
+  rust-ffmt-check:
+    name: rust ffmt check
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly
+          components: rustfmt
+      - name: Cache Cargo home
+        uses: actions/cache@v4
+        id: cache
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ hashFiles('**/Cargo.toml') }}-${{ env.CACHE_KEY_SUFFIX }}-rust-ffmt-check
+      - name: Fastidious Format Check
+        run: |
+          cargo fmt --all --check -- --config-path rustfmt.nightly.toml
+      - name: Hint
+        if: ${{ failure() }}
+        run: |-
+          echo "The ffmt (Fastidious Format Check) test is not a necessary."
+          echo "It uses unstable features to achieve a better format."
+          echo "If you want to pass the test, please install the nightly toolchain with \`rustup install nightly\`."
+          echo "Then run \`make ffmt\`."
+  rust-test:
+    name: rust test with codecov
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest, ubuntu-24.04-arm]
+        rust_toolchain: [stable, 1.81.0]
+        serde: ["", "--features serde"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust_toolchain }}
+          components: rustfmt, clippy, llvm-tools-preview
+      - name: Cache Cargo home
+        uses: actions/cache@v4
+        id: cache
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ hashFiles('**/Cargo.toml') }}-${{ env.CACHE_KEY_SUFFIX }}-rust-test
+      - name: Install NASM for aws-lc-rs on Windows
+        if: runner.os == 'Windows'
+        uses: ilammy/setup-nasm@v1
+      - name: Install ninja-build tool for aws-lc-fips-sys on Windows
+        if: runner.os == 'Windows'
+        uses: seanmiddleditch/gha-setup-ninja@v5
+      - name: Run rust format check
+        run: |
+          cargo fmt --all -- --check
+      - name: Run rust clippy check (stable)
+        if: matrix.rust_toolchain == 'stable'
+        run: |
+          cargo clippy --all-targets -- -D warnings
+      - if: steps.cache.outputs.cache-hit != 'true'
+        uses: taiki-e/install-action@cargo-llvm-cov
+      - if: steps.cache.outputs.cache-hit != 'true'
+        uses: taiki-e/install-action@nextest
+      - name: Run rust test with coverage
+        env:
+          RUST_BACKTRACE: 1
+          CI: true
+        run: |
+          cargo llvm-cov --no-report nextest
+      - name: Generate codecov report
+        run: |
+          cargo llvm-cov report --lcov --output-path lcov.info
+      - uses: codecov/codecov-action@v4
+        if: runner.os == 'Linux' && runner.arch == 'X64' && matrix.rust_toolchain == 'stable'
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        with:
+          verbose: true
+  rustdoc-test:
+    name: rust doc test
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly
+      - name: Cache Cargo home
+        uses: actions/cache@v4
+        id: cache
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ hashFiles('**/Cargo.toml') }}-${{ env.CACHE_KEY_SUFFIX }}-rustdoc-test
+      - name: Install NASM for aws-lc-rs on Windows
+        if: runner.os == 'Windows'
+        uses: ilammy/setup-nasm@v1
+      - name: Install ninja-build tool for aws-lc-fips-sys on Windows
+        if: runner.os == 'Windows'
+        uses: seanmiddleditch/gha-setup-ninja@v5
+      - name: Run rustdoc test
+        run: |
+          cargo test --features "nightly" --doc
+      - name: Test docs build with docs.rs
+        env:
+          RUSTDOCFLAGS: --cfg docsrs -D warnings
+        run: |
+          cargo doc --features "nightly" --no-deps
+      - name: Upload docs.rs docs as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: foyer-docs-${{ github.sha }}-${{ runner.os }}-${{ runner.arch }}
+          path: target/doc
+          if-no-files-found: error
+          retention-days: 7
