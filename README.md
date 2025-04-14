@@ -40,7 +40,7 @@ fn main() {
 
 ## MSRV
 
-Rust version >= `1.60.0`.
+Rust version >= `1.81.0`.
 
 ## Roadmap
 
