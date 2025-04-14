@@ -158,8 +158,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest, ubuntu-24.04-arm]
-        rust_toolchain: [stable, 1.60.0]
-        serde: ["", "--features serde"]
+        rust_toolchain: [stable, 1.63.0]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
