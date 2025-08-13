@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-use paste::paste;
+use pastey::paste;
 
 macro_rules! cmsketch {
     ($( {$type:ty, $suffix:ident}, )*) => {

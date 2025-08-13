@@ -14,7 +14,7 @@
 
 use std::sync::atomic::{AtomicU16, AtomicU32, AtomicU64, AtomicU8, AtomicUsize, Ordering};
 
-use paste::paste;
+use pastey::paste;
 
 macro_rules! cmsketch {
     ($( {$type:ty, $atomic:ty, $suffix:ident}, )*) => {
