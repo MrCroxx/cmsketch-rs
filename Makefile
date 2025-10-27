@@ -1,13 +1,14 @@
 SHELL := /bin/bash
 .PHONY: deps check test test-ignored test-all all fast monitor clear madsim
 
+all: check test
+
 deps:
 	./scripts/install-deps.sh
 
 check:
 	typos
 	shellcheck ./scripts/*
-	./.github/template/generate.sh
 	cargo sort -w
 	cargo fmt --all
 	cargo clippy --all-targets
@@ -24,6 +25,3 @@ taplo:
 
 ffmt:
 	cargo +nightly fmt --all -- --config-path rustfmt.nightly.toml
-
-all: check test
-
