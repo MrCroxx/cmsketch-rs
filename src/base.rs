@@ -42,6 +42,13 @@ fn twang_mix64(val: u64) -> u64 {
 macro_rules! cmsketch {
     ($( {$type:ty, $sketch:ident}, )*) => {
         $(
+            #[doc = concat!(
+                "Count-Min Sketch storing non-atomic `",
+                stringify!($type),
+                "` counters.\n\n",
+                "Use [`", stringify!($sketch), "::new`] to size the table based on error ",
+                "(`eps`) and confidence requirements."
+            )]
             #[derive(Debug)]
             pub struct $sketch {
                 width: usize,
@@ -51,18 +58,23 @@ macro_rules! cmsketch {
             }
 
             impl $sketch {
-                /// 2 / w = eps; w = 2 / eps
-                /// 1 / 2^depth <= 1 - confidence; depth >= -log2(1 - confidence)
+                /// Creates a new sketch sized by the target error `eps` and confidence.
                 ///
-                /// estimate confidence => depth:
+                /// `eps` controls the maximum additive error (≈ `2/width`), while
+                /// `confidence` determines the number of hash rows (depth).
                 ///
-                /// 0.5   => 1
-                /// 0.6   => 2
-                /// 0.7   => 2
-                /// 0.8   => 3
-                /// 0.9   => 4
-                /// 0.95  => 5
-                /// 0.995 => 8
+                /// Typical confidence to depth mapping:
+                ///
+                /// ```text
+                /// 0.50 => 1 row
+                /// 0.80 => 3 rows
+                /// 0.95 => 5 rows
+                /// 0.995 => 8 rows
+                /// ```
+                ///
+                /// # Panics
+                ///
+                /// Panics if `eps <= 0.0` or `confidence <= 0.0`.
                 pub fn new(eps: f64, confidence: f64) ->Self {
 
                     let width = (2.0 / eps).ceil() as usize;
@@ -85,10 +97,14 @@ macro_rules! cmsketch {
                     }
                 }
 
+                /// Increments the count associated with the provided hash by 1.
                 pub fn inc(&mut self, hash: u64) {
                     self.inc_by(hash, 1);
                 }
 
+                /// Increments the count associated with the provided hash by `count`.
+                ///
+                /// Saturates at the maximum value representable by the counter type.
                 pub fn inc_by(&mut self, hash: u64, count: $type) {
                     for depth in 0..self.depth {
                         let index = self.index(depth, hash);
@@ -96,10 +112,14 @@ macro_rules! cmsketch {
                     }
                 }
 
+                /// Decrements the count associated with the provided hash by 1.
                 pub fn dec(&mut self, hash: u64) {
                     self.dec_by(hash, 1);
                 }
 
+                /// Decrements the count associated with the provided hash by `count`.
+                ///
+                /// Saturates at zero if the counter would go negative.
                 pub fn dec_by(&mut self, hash: u64, count: $type) {
                     for depth in 0..self.depth {
                         let index = self.index(depth, hash);
@@ -107,32 +127,45 @@ macro_rules! cmsketch {
                     }
                 }
 
+                /// Returns the minimum counter across all rows for `hash`.
+                ///
+                /// This is the standard Count-Min Sketch estimator and forms an upper bound.
                 pub fn estimate(&self, hash: u64) -> $type {
                     unsafe {
                         (0..self.depth).map(|depth| self.table[self.index(depth, hash)]).min().unwrap_unchecked()
                     }
                 }
 
+                /// Resets all counters to zero.
                 pub fn clear(&mut self) {
                     self.table.iter_mut().for_each(|c| *c = 0);
                 }
 
+                /// Divides every counter by two using a right shift.
+                ///
+                /// Useful for exponential decay where counts represent recent activity.
                 pub fn halve(&mut self) {
                     self.table.iter_mut().for_each(|c| *c >>= 1);
                 }
 
+                /// Multiplies every counter by `decay` and truncates back into `$type`.
+                ///
+                /// Values are floored after multiplication; choose `decay` in `(0, 1]`.
                 pub fn decay(&mut self, decay: f64) {
                     self.table.iter_mut().for_each(|c| *c = (*c as f64 * decay) as $type);
                 }
 
+                /// Returns the configured table width (number of columns).
                 pub fn width(&self) -> usize {
                     self.width
                 }
 
+                /// Returns the number of hash rows.
                 pub fn depth(&self) -> usize {
                     self.depth
                 }
 
+                /// Returns the maximum representable counter for this sketch.
                 pub fn capacity(&self) -> $type {
                     <$type>::MAX
                 }
@@ -143,6 +176,7 @@ macro_rules! cmsketch {
                         + (combine_hashes(twang_mix64(depth as u64), hash) as usize % self.width)
                 }
 
+                /// Returns the amount of memory the sketch uses in bytes.
                 pub fn memory(&self) -> usize {
                     (<$type>::BITS as usize * self.depth * self.width + usize::BITS as usize * 3) / 8
                 }
