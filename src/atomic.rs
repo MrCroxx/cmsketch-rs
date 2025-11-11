@@ -44,6 +44,14 @@ fn twang_mix64(val: u64) -> u64 {
 macro_rules! cmsketch {
     ($( {$type:ty, $atomic:ty, $sketch:ident}, )*) => {
         $(
+            #[doc = concat!(
+                "Count-Min Sketch that stores `",
+                stringify!($type),
+                "` counters using atomics for concurrent updates.\n\n",
+                "Each bucket is backed by [`",
+                stringify!($atomic),
+                "`], allowing lock-free increments and decrements."
+            )]
             #[derive(Debug)]
             pub struct $sketch {
                 width: usize,
@@ -53,18 +61,14 @@ macro_rules! cmsketch {
             }
 
             impl $sketch {
-                /// 2 / w = eps; w = 2 / eps
-                /// 1 / 2^depth <= 1 - confidence; depth >= -log2(1 - confidence)
+                /// Creates a new atomic sketch sized by error `eps` and `confidence`.
                 ///
-                /// estimate confidence => depth:
+                /// See [`CMSketchU32::new`](crate::CMSketchU32::new) for the mapping between
+                /// confidence and depth.
                 ///
-                /// 0.5   => 1
-                /// 0.6   => 2
-                /// 0.7   => 2
-                /// 0.8   => 3
-                /// 0.9   => 4
-                /// 0.95  => 5
-                /// 0.995 => 8
+                /// # Panics
+                ///
+                /// Panics if `eps <= 0.0` or `confidence <= 0.0`.
                 pub fn new(eps: f64, confidence: f64) ->Self {
 
                     let width = (2.0 / eps).ceil() as usize;
@@ -81,10 +85,15 @@ macro_rules! cmsketch {
                     }
                 }
 
+                /// Atomically increments the count associated with `hash` by 1.
                 pub fn inc(&self, hash: u64) {
                     self.inc_by(hash, 1);
                 }
 
+                /// Atomically increments the count associated with `hash` by `count`.
+                ///
+                /// Saturates at the maximum value representable by the counter type and leaves the bucket unchanged
+                /// if the update would overflow.
                 pub fn inc_by(&self, hash: u64, count: $type) {
                     for depth in 0..self.depth {
                         let index = self.index(depth, hash);
@@ -94,10 +103,14 @@ macro_rules! cmsketch {
                     }
                 }
 
+                /// Atomically decrements the count associated with `hash` by 1.
                 pub fn dec(&self, hash: u64) {
                     self.dec_by(hash, 1);
                 }
 
+                /// Atomically decrements the count associated with `hash` by `count`.
+                ///
+                /// Leaves the counter unchanged if it would underflow.
                 pub fn dec_by(&self, hash: u64, count: $type) {
                     for depth in 0..self.depth {
                         let index = self.index(depth, hash);
@@ -107,36 +120,43 @@ macro_rules! cmsketch {
                     }
                 }
 
+                /// Returns the minimum counter across all rows for `hash`.
                 pub fn estimate(&self, hash: u64) -> $type {
                     unsafe {
                         (0..self.depth).map(|depth| self.table[self.index(depth, hash)].load(Ordering::Relaxed)).min().unwrap_unchecked()
                     }
                 }
 
+                /// Resets all counters to zero.
                 pub fn clear(&self) {
                     self.table.iter().for_each(|v| v.store(0, Ordering::Relaxed));
                 }
 
+                /// Divides every counter by two using an atomic fetch-update.
                 pub fn halve(&self) {
                     self.table.iter().for_each(|v| {
                         let _ = v.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |x| Some(x >> 1));
                     });
                 }
 
+                /// Applies a floating-point decay factor to every counter.
                 pub fn decay(&self, decay: f64) {
                     self.table.iter().for_each(|v| {
                         let _ = v.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |x| Some((x as f64 * decay) as $type));
                     });
                 }
 
+                /// Returns the configured table width (number of columns).
                 pub fn width(&self) -> usize {
                     self.width
                 }
 
+                /// Returns the number of hash rows.
                 pub fn depth(&self) -> usize {
                     self.depth
                 }
 
+                /// Returns the maximum representable counter for this sketch.
                 pub fn capacity(&self) -> $type {
                     <$type>::MAX
                 }
@@ -147,6 +167,7 @@ macro_rules! cmsketch {
                         + (combine_hashes(twang_mix64(depth as u64), hash) as usize % self.width)
                 }
 
+                /// Returns the amount of memory used by the sketch in bytes.
                 pub fn memory(&self) -> usize {
                     (<$type>::BITS as usize * self.depth * self.width + usize::BITS as usize * 3) / 8
                 }
